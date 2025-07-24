@@ -150,25 +150,46 @@ class RemoveUserAction(BaseAction):
             logger.error(f"{self.log_prefix} {error_msg}")
             await self.send_text("执行踢人动作失败（群ID缺失）")
             return False, error_msg
-        success = await send_api.command_to_group(
-            command="GROUP_REMOVE",
-            group_id=group_id,
-            platform=platform,
-            storage_message=False,
-            qq_id=str(user_id)
-        )
-        if success:
-            logger.info(f"{self.log_prefix} 成功发送踢人命令，用户 {target}({user_id})")
-            await self.store_action_info(
-                action_build_into_prompt=True,
-                action_prompt_display=f"尝试踢出了用户 {target}，原因：{reason}",
-                action_done=True,
-            )
-            return True, f"成功踢出 {target}"
-        else:
-            error_msg = "发送踢人命令失败"
+        # GROUP_REMOVE 命令参数应通过 content 传递
+        # send_api.command_to_group 只支持 command、group_id、platform、storage_message
+        # 踢人命令格式为 "GROUP_REMOVE qq_id"
+        # Napcat API 踢人实现
+        import httpx
+        napcat_api = "http://127.0.0.1:3000/set_group_kick"
+        payload = {
+            "group_id": str(group_id),
+            "user_id": str(user_id),
+            "reject_add_request": False
+        }
+        logger.info(f"{self.log_prefix} Napcat踢人API请求: {napcat_api}, payload={payload}")
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(napcat_api, json=payload, timeout=5)
+            logger.info(f"{self.log_prefix} Napcat踢人API响应: status={response.status_code}, body={response.text}")
+            if response.status_code == 200:
+                resp_json = response.json()
+                if resp_json.get("status") == "ok" and resp_json.get("retcode") == 0:
+                    logger.info(f"{self.log_prefix} 成功踢出 {target}({user_id})，群: {group_id}")
+                    await self.store_action_info(
+                        action_build_into_prompt=True,
+                        action_prompt_display=f"尝试踢出了用户 {target}，原因：{reason}",
+                        action_done=True,
+                    )
+                    return True, f"成功踢出 {target}"
+                else:
+                    error_msg = f"Napcat API返回失败: {resp_json}"
+                    logger.error(f"{self.log_prefix} {error_msg}")
+                    await self.send_text("执行踢人动作失败（API返回失败）")
+                    return False, error_msg
+            else:
+                error_msg = f"Napcat API请求失败: HTTP {response.status_code}"
+                logger.error(f"{self.log_prefix} {error_msg}")
+                await self.send_text("执行踢人动作失败（API请求失败）")
+                return False, error_msg
+        except Exception as e:
+            error_msg = f"Napcat API请求异常: {e}"
             logger.error(f"{self.log_prefix} {error_msg}")
-            await self.send_text("执行踢人动作失败")
+            await self.send_text("执行踢人动作失败（API异常）")
             return False, error_msg
 
     def _get_template_message(self, target: str, reason: str) -> str:
@@ -232,21 +253,44 @@ class RemoveUserCommand(BaseCommand):
             if not group_id:
                 await self.send_text("❌ 无法获取群聊ID")
                 return False, "群聊ID缺失"
-            success = await send_api.command_to_group(
-                command="GROUP_REMOVE",
-                group_id=group_id,
-                platform=platform,
-                storage_message=False,
-                qq_id=str(user_id)
-            )
-            if success:
-                message = self._get_template_message(target, reason)
-                await self.send_text(message)
-                logger.info(f"{self.log_prefix} 成功踢出 {target}({user_id})")
-                return True, f"成功踢出 {target}"
-            else:
-                await self.send_text("❌ 发送踢人命令失败")
-                return False, "发送踢人命令失败"
+            # GROUP_REMOVE 命令参数应通过 content 传递
+            # send_api.command_to_group 只支持 command、group_id、platform、storage_message
+            # 踢人命令格式为 "GROUP_REMOVE qq_id"
+            # Napcat API 踢人实现
+            import httpx
+            napcat_api = "http://127.0.0.1:3000/set_group_kick"
+            payload = {
+                "group_id": str(group_id),
+                "user_id": str(user_id),
+                "reject_add_request": False
+            }
+            logger.info(f"{self.log_prefix} Napcat踢人API请求: {napcat_api}, payload={payload}")
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(napcat_api, json=payload, timeout=5)
+                logger.info(f"{self.log_prefix} Napcat踢人API响应: status={response.status_code}, body={response.text}")
+                if response.status_code == 200:
+                    resp_json = response.json()
+                    if resp_json.get("status") == "ok" and resp_json.get("retcode") == 0:
+                        message = self._get_template_message(target, reason)
+                        await self.send_text(message)
+                        logger.info(f"{self.log_prefix} 成功踢出 {target}({user_id})，群: {group_id}")
+                        return True, f"成功踢出 {target}"
+                    else:
+                        error_msg = f"Napcat API返回失败: {resp_json}"
+                        logger.error(f"{self.log_prefix} {error_msg}")
+                        await self.send_text("❌ 发送踢人命令失败（API返回失败）")
+                        return False, error_msg
+                else:
+                    error_msg = f"Napcat API请求失败: HTTP {response.status_code}"
+                    logger.error(f"{self.log_prefix} {error_msg}")
+                    await self.send_text("❌ 发送踢人命令失败（API请求失败）")
+                    return False, error_msg
+            except Exception as e:
+                error_msg = f"Napcat API请求异常: {e}"
+                logger.error(f"{self.log_prefix} {error_msg}")
+                await self.send_text("❌ 发送踢人命令失败（API异常）")
+                return False, error_msg
         except Exception as e:
             logger.error(f"{self.log_prefix} 踢人命令执行失败: {e}")
             await self.send_text(f"❌ 踢人命令错误: {str(e)}")
