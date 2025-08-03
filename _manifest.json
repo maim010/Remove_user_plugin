@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "name": "群聊踢人插件 (Remove User Plugin)",
+  "name": "踢人插件",
   "version": "1.0.0",
   "description": "群聊踢人插件，提供智能踢人功能",
   "author": {
@@ -10,9 +10,9 @@
   "license": "GPL-v3.0-or-later",
   "host_application": {
     "min_version": "0.8.0",
-    "max_version": "0.8.1"
+    "max_version": "0.9.0"
   },
-  "keywords": ["remove", "ban", "moderation", "admin", "group"],
+  "keywords": ["kick", "moderation", "admin", "group"],
   "categories": ["Moderation", "Group Management", "Admin Tools"],
   "default_locale": "zh-CN",
   "locales_path": "_locales"

@@ -20,7 +20,7 @@ enable_remove_command = true
 # 允许使用踢人命令的用户列表，格式：['platform:user_id']，如['qq:123456789']。空列表表示不启用权限控制
 allowed_users = ['qq:2367677516']
 # 允许使用踢人动作的群组列表，格式：['platform:group_id']，如['qq:987654321']。空列表表示不启用权限控制
-allowed_groups = ['qq:882481416']
+allowed_groups = []
 
 # 核心踢人功能配置
 [remove]
